@@ -50,7 +50,7 @@ scan_subnet() {
     # Сканируем каждый активный хост
     for host in $active_hosts; do
         echo "Сканируем хост $host..."
-        nmap -sS -T3 --scan-delay 100ms -f -O --osscan-guess -A \
+        nmap -Pn --disable-arp-ping --max-retries 5 --host-timeout 60s -sS -T2 \
         -p 21,22,23,25,53,80,110,135,139,143,443,445,3389,3306,8080,8443 \
         --script vuln --reason "$host" -oN "$OUTPUT_FILE"
     done
@@ -64,7 +64,7 @@ if [[ "$target" == *"/"* ]]; then
 else
     # Если это одиночный IP-адрес, сканируем только его
     echo "Сканируется хост $target..."
-    nmap -sS -T3 --scan-delay 100ms -f -O --osscan-guess -A \
+    nmap -Pn --disable-arp-ping --max-retries 5 --host-timeout 60s -sS -T2 \
     -p 21,22,23,25,53,80,110,135,139,143,443,445,3389,3306,8080,8443 \
     --script vuln --reason "$target" -oN "$OUTPUT_FILE"
 fi
