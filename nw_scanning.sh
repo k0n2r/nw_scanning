@@ -131,18 +131,90 @@ parse_results() {
 
     # Вывод всех фильтрованных портов, если они найдены
     if [[ ${#filtered_ports[@]} -gt 0 ]]; then
-        echo -e "  Фильтрованные порты: ${filtered_ports[*]}"
+        echo -e "  Фильтрованные порты:"
+        for port in "${filtered_ports[@]}"; do
+            echo -e "    $port"
+        done
     fi
 
     # Вывод всех открытых портов, если они найдены
     if [[ ${#open_ports[@]} -gt 0 ]]; then
-        echo -e "  Открытые порты: ${open_ports[*]}"
+        echo -e "  Открытые порты:"
+        for port in "${open_ports[@]}"; do
+            echo -e "    $port"
+        done
     fi
 
     # Вывод всех закрытых портов, если они найдены
     if [[ ${#closed_ports[@]} -gt 0 ]]; then
-        echo -e "  Закрытые порты: ${closed_ports[*]}"
+        echo -e "  Закрытые порты:"
+        for port in "${closed_ports[@]}"; do
+            echo -e "    $port"
+        done
+    fi#!/bin/bash
+
+# Проверка на наличие утилиты nmap
+if ! command -v nmap &>/dev/null; then
+    echo "Ошибка: утилита nmap не установлена. Установите nmap и повторите попытку."
+    exit 1
+fi
+
+# Запрос IP-адреса или подсети
+echo "Введите IP-адрес или подсеть для сканирования (например, 192.168.1.0/24):"
+read target
+
+# Проверка, что IP-адрес или подсеть были введены
+if [ -z "$target" ]; then
+    echo "Ошибка: необходимо указать IP-адрес или подсеть."
+    exit 1
+fi
+
+# Устанавливаем директорию для вывода результатов
+OUTPUT_DIR="Результат_nw_scanning"
+mkdir -p "$OUTPUT_DIR"
+
+# Задаем формат для имени файла вывода
+TIMESTAMP=$(date +"%d.%m.%Y_%H.%M" -d '3 hours')  # Московское время (+3 часа)
+OUTPUT_FILE="${OUTPUT_DIR}/scan_nw_${TIMESTAMP}.txt"
+
+# Функция для сканирования подсети
+scan_subnet() {
+    local subnet="$1"
+    # Получаем диапазон хостов для подсети, используя nmap
+    echo "Сканируем все хосты в подсети $subnet..."
+    active_hosts=$(nmap -sn "$subnet" | grep "Nmap scan report for" | awk '{print $5}')
+    
+    if [ -z "$active_hosts" ]; then
+        echo "Нет активных хостов в сети $subnet."
+        exit 0
     fi
+    
+    echo "Найденные активные хосты:"
+    echo "$active_hosts"
+    
+    # Запрос на продолжение сканирования
+    echo "Сканировать найденные хосты? (y/n)"
+    read response
+    if [[ ! "$response" =~ ^[Yy]$ ]]; then
+        echo "Сканирование завершено. Результаты записаны в файл: $OUTPUT_FILE"
+        exit 0
+    fi
+    
+    # Сканируем каждый активный хост
+    for host in $active_hosts; do
+        echo "Сканируем хост $host..."
+        nmap -Pn --disable-arp-ping --max-retries 5 --host-timeout 60s -sS -T2 \
+        -p 21,22,23,25,53,80,110,135,139,143,443,445,3389,3306,8080,8443 \
+        --script vuln --reason "$host" -oN "$OUTPUT_FILE"
+    done
+}
+
+# Проверка, является ли введённый адрес подсетью (содержит "/")
+if [[ "$target" == *"/"* ]]; then
+    # Сканируем всю подсеть
+    echo "Сканируется подсеть $target..."
+    scan_subnet "$target"
+
 }
 
 # Вызов функции для форматирования и анализа результатов
