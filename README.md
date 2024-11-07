@@ -1,5 +1,3 @@
-# nw_scanning
-
 # Network Scanning Script
 
 ## DISCLAIMER
